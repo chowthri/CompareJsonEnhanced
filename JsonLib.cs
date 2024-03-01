@@ -2,12 +2,12 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 
-class clsCompareJsonV1
+class clsCompareJsonVersion1
 {
     static void Main()
     {
-        string json1 = "{\"person\":{\"name\":\"John\",\"age\":30,\"city\":\"New York\",\"birthdate\":\"2022-02-28T12:34:56\"}}";
-        string json2 = "{\"person\":{\"name\":\"Jane\",\"age\":30,\"city\":\"Los Angeles\",\"birthdate\":\"2022-02-28T12:34:56\"}}";
+        string json1 = "{\"person\":{\"name\":\"John\",\"age\":30,\"city\":\"New York\",\"skills\":[\"C#\",\"JavaScript\"]}}";
+        string json2 = "{\"person\":{\"name\":\"Jane\",\"age\":30,\"city\":\"Los Angeles\",\"skills\":[\"JavaScript\",\"Python\"]}}";
 
         List<DiffResult> differences = CompareJson(json1, json2);
 
