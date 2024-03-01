@@ -2,7 +2,7 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 
-class clsCompareJsonVersion1
+class clsJsonCompareVersion1
 {
     static void Main()
     {
@@ -19,46 +19,52 @@ class clsCompareJsonVersion1
 
     static List<DiffResult> CompareJson(string json1, string json2)
     {
-        JObject obj1 = JObject.Parse(json1);
-        JObject obj2 = JObject.Parse(json2);
+        JToken obj1 = JToken.Parse(json1);
+        JToken obj2 = JToken.Parse(json2);
 
         return CompareJsonObjects(obj1, obj2);
     }
 
-    static List<DiffResult> CompareJsonObjects(JObject obj1, JObject obj2, string currentPath = "")
+    static List<DiffResult> CompareJsonObjects(JToken obj1, JToken obj2, string currentPath = "")
     {
         List<DiffResult> differences = new List<DiffResult>();
 
-        foreach (var property1 in obj1.Properties())
+        if (obj1 is JObject && obj2 is JObject)
         {
-            string fieldName = currentPath + property1.Name;
-            JToken value1 = property1.Value;
-            JToken value2 = obj2[property1.Name];
+            var jObj1 = (JObject)obj1;
+            var jObj2 = (JObject)obj2;
 
-            if (value2 == null)
+            foreach (var property1 in jObj1.Properties())
             {
-                differences.Add(new DiffResult(fieldName, FormatValue(value1), "null"));
-            }
-            else if (value1.Type == JTokenType.Object && value2.Type == JTokenType.Object)
-            {
-                differences.AddRange(CompareJsonObjects((JObject)value1, (JObject)value2, fieldName + "."));
-            }
-            else if (value1.Type == JTokenType.Array && value2.Type == JTokenType.Array)
-            {
-                differences.AddRange(CompareJsonArrays((JArray)value1, (JArray)value2, fieldName + "."));
-            }
-            else if (!JToken.DeepEquals(value1, value2))
-            {
-                differences.Add(new DiffResult(fieldName, FormatValue(value1), FormatValue(value2)));
-            }
-        }
+                string fieldName = currentPath + property1.Name;
+                JToken value1 = property1.Value;
+                JToken value2 = jObj2[property1.Name];
 
-        foreach (var property2 in obj2.Properties())
-        {
-            if (obj1[property2.Name] == null)
+                if (value2 == null)
+                {
+                    differences.Add(new DiffResult(fieldName, FormatValue(value1), "null"));
+                }
+                else if (value1.Type == JTokenType.Object && value2.Type == JTokenType.Object)
+                {
+                    differences.AddRange(CompareJsonObjects(value1, value2, fieldName + "."));
+                }
+                else if (value1.Type == JTokenType.Array && value2.Type == JTokenType.Array)
+                {
+                    differences.AddRange(CompareJsonArrays((JArray)value1, (JArray)value2, fieldName + "."));
+                }
+                else if (!JToken.DeepEquals(value1, value2))
+                {
+                    differences.Add(new DiffResult(fieldName, FormatValue(value1), FormatValue(value2)));
+                }
+            }
+
+            foreach (var property2 in jObj2.Properties())
             {
-                string fieldName = currentPath + property2.Name;
-                differences.Add(new DiffResult(fieldName, "null", FormatValue(property2.Value)));
+                if (jObj1[property2.Name] == null)
+                {
+                    string fieldName = currentPath + property2.Name;
+                    differences.Add(new DiffResult(fieldName, "null", FormatValue(property2.Value)));
+                }
             }
         }
 
@@ -84,7 +90,7 @@ class clsCompareJsonVersion1
             }
             else if (value1.Type == JTokenType.Object && value2.Type == JTokenType.Object)
             {
-                differences.AddRange(CompareJsonObjects((JObject)value1, (JObject)value2, $"{currentPath}[{i}]."));
+                differences.AddRange(CompareJsonObjects(value1, value2, $"{currentPath}[{i}]."));
             }
             else if (value1.Type == JTokenType.Array && value2.Type == JTokenType.Array)
             {
