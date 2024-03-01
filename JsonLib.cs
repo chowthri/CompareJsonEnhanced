@@ -1,125 +1,132 @@
 using System;
-using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+using System.Text;
 
-class clsJsonCompareVersion1
+class Program
 {
     static void Main()
     {
-        string json1 = "{\"person\":{\"name\":\"John\",\"age\":30,\"city\":\"New York\",\"skills\":[\"C#\",\"JavaScript\"]}}";
-        string json2 = "{\"person\":{\"name\":\"Jane\",\"age\":30,\"city\":\"Los Angeles\",\"skills\":[\"JavaScript\",\"Python\"]}}";
+        // Example JSON strings
+        string json1 = "{\"id\": 1, \"name\": \"John\", \"details\": {\"age\": 25, \"city\": \"New York\"}, \"tags\": [\"tag1\", \"tag2\"]}";
+        string json2 = "{\"id\": 2, \"name\": \"Jane\", \"details\": {\"age\": 25, \"city\": \"Los Angeles\"}, \"tags\": [\"tag1\", \"tag3\"]}";
 
-        List<DiffResult> differences = CompareJson(json1, json2);
+        // Deserialize JSON strings into JToken
+        JToken token1 = JToken.Parse(json1);
+        JToken token2 = JToken.Parse(json2);
 
-        foreach (var diff in differences)
-        {
-            Console.WriteLine($"Field: {diff.FieldName}, Value1: {diff.Value1}, Value2: {diff.Value2}");
-        }
+        // Compare and generate List<DiffResult>
+        List<DiffResult> diffResults = CompareTokens(token1, token2);
+
+        // Generate HTML table from List<DiffResult>
+        string htmlTable = GenerateHtmlTable(diffResults);
+
+        Console.WriteLine(htmlTable);
+
+        Console.ReadLine();
     }
 
-    static List<DiffResult> CompareJson(string json1, string json2)
-    {
-        JToken obj1 = JToken.Parse(json1);
-        JToken obj2 = JToken.Parse(json2);
-
-        return CompareJsonObjects(obj1, obj2);
-    }
-
-    static List<DiffResult> CompareJsonObjects(JToken obj1, JToken obj2, string currentPath = "")
+    static List<DiffResult> CompareTokens(JToken token1, JToken token2, string path = "")
     {
         List<DiffResult> differences = new List<DiffResult>();
 
-        if (obj1 is JObject && obj2 is JObject)
+        if (JToken.DeepEquals(token1, token2))
         {
-            var jObj1 = (JObject)obj1;
-            var jObj2 = (JObject)obj2;
+            return differences;
+        }
 
-            foreach (var property1 in jObj1.Properties())
-            {
-                string fieldName = currentPath + property1.Name;
-                JToken value1 = property1.Value;
-                JToken value2 = jObj2[property1.Name];
+        switch (token1.Type)
+        {
+            case JTokenType.Object:
+                var obj1 = (JObject)token1;
+                var obj2 = (JObject)token2;
 
-                if (value2 == null)
+                foreach (var property in obj1.Properties())
                 {
-                    differences.Add(new DiffResult(fieldName, FormatValue(value1), "null"));
+                    var propertyPath = path + "." + property.Name;
+                    if (obj2.TryGetValue(property.Name, out var value2))
+                    {
+                        differences.AddRange(CompareTokens(property.Value, value2, propertyPath));
+                    }
+                    else
+                    {
+                        differences.Add(new DiffResult(propertyPath, property.Value, null));
+                    }
                 }
-                else if (value1.Type == JTokenType.Object && value2.Type == JTokenType.Object)
-                {
-                    differences.AddRange(CompareJsonObjects(value1, value2, fieldName + "."));
-                }
-                else if (value1.Type == JTokenType.Array && value2.Type == JTokenType.Array)
-                {
-                    differences.AddRange(CompareJsonArrays((JArray)value1, (JArray)value2, fieldName + "."));
-                }
-                else if (!JToken.DeepEquals(value1, value2))
-                {
-                    differences.Add(new DiffResult(fieldName, FormatValue(value1), FormatValue(value2)));
-                }
-            }
 
-            foreach (var property2 in jObj2.Properties())
-            {
-                if (jObj1[property2.Name] == null)
+                foreach (var property in obj2.Properties())
                 {
-                    string fieldName = currentPath + property2.Name;
-                    differences.Add(new DiffResult(fieldName, "null", FormatValue(property2.Value)));
+                    if (!obj1.ContainsKey(property.Name))
+                    {
+                        differences.Add(new DiffResult(path + "." + property.Name, null, property.Value));
+                    }
                 }
-            }
+
+                break;
+
+            case JTokenType.Array:
+                var array1 = (JArray)token1;
+                var array2 = (JArray)token2;
+
+                for (int i = 0; i < Math.Max(array1.Count, array2.Count); i++)
+                {
+                    var elementPath = path + $"[{i}]";
+                    if (i < array1.Count && i < array2.Count)
+                    {
+                        differences.AddRange(CompareTokens(array1[i], array2[i], elementPath));
+                    }
+                    else if (i < array1.Count)
+                    {
+                        differences.Add(new DiffResult(elementPath, array1[i], null));
+                    }
+                    else
+                    {
+                        differences.Add(new DiffResult(elementPath, null, array2[i]));
+                    }
+                }
+
+                break;
+
+            default:
+                differences.Add(new DiffResult(path, token1, token2));
+                break;
         }
 
         return differences;
     }
 
-    static List<DiffResult> CompareJsonArrays(JArray array1, JArray array2, string currentPath)
+    static string GenerateHtmlTable(List<DiffResult> diffResults)
     {
-        List<DiffResult> differences = new List<DiffResult>();
+        StringBuilder html = new StringBuilder();
 
-        for (int i = 0; i < Math.Max(array1.Count, array2.Count); i++)
+        html.AppendLine("<table border='1'>");
+        html.AppendLine("<tr><th>Property</th><th>Value in JSON 1</th><th>Value in JSON 2</th></tr>");
+
+        foreach (var diff in diffResults)
         {
-            JToken value1 = i < array1.Count ? array1[i] : null;
-            JToken value2 = i < array2.Count ? array2[i] : null;
-
-            if (value1 == null)
-            {
-                differences.Add(new DiffResult($"{currentPath}[{i}]", "null", FormatValue(value2)));
-            }
-            else if (value2 == null)
-            {
-                differences.Add(new DiffResult($"{currentPath}[{i}]", FormatValue(value1), "null"));
-            }
-            else if (value1.Type == JTokenType.Object && value2.Type == JTokenType.Object)
-            {
-                differences.AddRange(CompareJsonObjects(value1, value2, $"{currentPath}[{i}]."));
-            }
-            else if (value1.Type == JTokenType.Array && value2.Type == JTokenType.Array)
-            {
-                differences.AddRange(CompareJsonArrays((JArray)value1, (JArray)value2, $"{currentPath}[{i}]."));
-            }
-            else if (!JToken.DeepEquals(value1, value2))
-            {
-                differences.Add(new DiffResult($"{currentPath}[{i}]", FormatValue(value1), FormatValue(value2)));
-            }
+            html.AppendLine($"<tr><td>{diff.Property}</td><td>{FormatValue(diff.Value1)}</td><td>{FormatValue(diff.Value2)}</td></tr>");
         }
 
-        return differences;
+        html.AppendLine("</table>");
+
+        return html.ToString();
     }
 
-    static string FormatValue(JToken value)
+    static string FormatValue(object value)
     {
-        return (value == null || value.Type == JTokenType.Null) ? "null" : value.ToString();
+        return value?.ToString() ?? "null";
     }
 }
 
 class DiffResult
 {
-    public string FieldName { get; }
-    public string Value1 { get; }
-    public string Value2 { get; }
+    public string Property { get; }
+    public object Value1 { get; }
+    public object Value2 { get; }
 
-    public DiffResult(string fieldName, string value1, string value2)
+    public DiffResult(string property, object value1, object value2)
     {
-        FieldName = fieldName;
+        Property = property;
         Value1 = value1;
         Value2 = value2;
     }
