@@ -504,6 +504,87 @@ static List<DiffResult> CompareTokensV2(JToken token1, JToken token2, string pat
 
     return differences;
 }
+////////////////////////////////////////
 
+static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string path = "")
+{
+    List<DiffResult> differences = new List<DiffResult>();
 
+    if (token1 == null && token2 == null)
+    {
+        return differences;  // Both tokens are null, nothing to compare
+    }
+
+    if (token1 == null || token2 == null)
+    {
+        // One token is null, treat it as a difference
+        differences.Add(new DiffResult(path, token1, token2, false));
+        return differences;
+    }
+
+    if (JToken.DeepEquals(token1, token2))
+    {
+        differences.Add(new DiffResult(path, token1, token2, true));
+        return differences;
+    }
+
+    switch (token1.Type)
+    {
+        case JTokenType.Object:
+            var obj1 = (JObject)token1;
+            var obj2 = (JObject)token2;
+
+            foreach (var property in obj1.Properties())
+            {
+                var propertyPath = path + "." + property.Name;
+                if (obj2.TryGetValue(property.Name, out var value2))
+                {
+                    differences.AddRange(CompareTokens(property.Value, value2, propertyPath));
+                }
+                else
+                {
+                    differences.Add(new DiffResult(propertyPath, property.Value, null, false));
+                }
+            }
+
+            foreach (var property in obj2.Properties())
+            {
+                if (!obj1.ContainsKey(property.Name))
+                {
+                    differences.Add(new DiffResult(path + "." + property.Name, null, property.Value, false));
+                }
+            }
+
+            break;
+
+        case JTokenType.Array:
+            var array1 = (JArray)token1;
+            var array2 = (JArray)token2;
+
+            for (int i = 0; i < Math.Max(array1.Count, array2.Count); i++)
+            {
+                var elementPath = path + $"[{i}]";
+                if (i < array1.Count && i < array2.Count)
+                {
+                    differences.AddRange(CompareTokens(array1[i], array2[i], elementPath));
+                }
+                else if (i < array1.Count)
+                {
+                    differences.Add(new DiffResult(elementPath, array1[i], null, false));
+                }
+                else
+                {
+                    differences.Add(new DiffResult(elementPath, null, array2[i], false));
+                }
+            }
+
+            break;
+
+        default:
+            differences.Add(new DiffResult(path, token1, token2, false));
+            break;
+    }
+
+    return differences;
+}
 
