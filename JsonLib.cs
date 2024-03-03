@@ -506,7 +506,7 @@ static List<DiffResult> CompareTokensV2(JToken token1, JToken token2, string pat
 }
 ////////////////////////////////////////
 
-static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string path = "")
+static List<DiffResult> CompareTokens(JToken token1, JToken token2, string path = "")
 {
     List<DiffResult> differences = new List<DiffResult>();
 
@@ -518,13 +518,13 @@ static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string pat
     if (token1 == null || token2 == null)
     {
         // One token is null, treat it as a difference
-        differences.Add(new DiffResult(path, token1, token2, false));
+        differences.Add(new DiffResult(path, FormatValue(token1), FormatValue(token2), false));
         return differences;
     }
 
     if (JToken.DeepEquals(token1, token2))
     {
-        differences.Add(new DiffResult(path, token1, token2, true));
+        differences.Add(new DiffResult(path, FormatValue(token1), FormatValue(token2), true));
         return differences;
     }
 
@@ -543,7 +543,7 @@ static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string pat
                 }
                 else
                 {
-                    differences.Add(new DiffResult(propertyPath, property.Value, null, false));
+                    differences.Add(new DiffResult(propertyPath, FormatValue(property.Value), "null", false));
                 }
             }
 
@@ -551,7 +551,7 @@ static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string pat
             {
                 if (!obj1.ContainsKey(property.Name))
                 {
-                    differences.Add(new DiffResult(path + "." + property.Name, null, property.Value, false));
+                    differences.Add(new DiffResult(path + "." + property.Name, "null", FormatValue(property.Value), false));
                 }
             }
 
@@ -570,21 +570,20 @@ static List<DiffResult> CompareTokensV3(JToken token1, JToken token2, string pat
                 }
                 else if (i < array1.Count)
                 {
-                    differences.Add(new DiffResult(elementPath, array1[i], null, false));
+                    differences.Add(new DiffResult(elementPath, FormatValue(array1[i]), "null", false));
                 }
                 else
                 {
-                    differences.Add(new DiffResult(elementPath, null, array2[i], false));
+                    differences.Add(new DiffResult(elementPath, "null", FormatValue(array2[i]), false));
                 }
             }
 
             break;
 
         default:
-            differences.Add(new DiffResult(path, token1, token2, false));
+            differences.Add(new DiffResult(path, FormatValue(token1), FormatValue(token2), false));
             break;
     }
 
     return differences;
 }
-
